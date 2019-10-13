@@ -1,0 +1,15 @@
+[Unit]
+Description=SoftEther Spam Blocker
+After=network.target auditd.service
+ConditionPathExists=!/opt/blockspam/do_not_run
+
+[Service]
+#Type=forking
+Type=simple
+EnvironmentFile=-/opt/blockspam
+ExecStart=/opt/blockspam/blockSpamers -c /opt/blockspam/config.yml
+KillMode=process
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
