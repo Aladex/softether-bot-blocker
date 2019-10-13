@@ -19,6 +19,8 @@ var count int
 var blockedIPS []iptools.BlockedIP
 var regEXP = `(?P<time>^\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d).+\((?P<ipaddr>[0-9]+(?:\.[0-9]+){3}).+channel is created`
 var timeFormat = "2006-01-02 15:04:05"
+var filename string
+var checkFilename string
 
 type BanConf struct {
 	LogPath  string `yaml:"logpath"`
@@ -82,12 +84,16 @@ func main() {
 	log.SetOutput(l)
 
 	for {
-		filename := fmt.Sprintf("%v/%v", cnf.LogPath, logNameFormat(time.Now()))
-		t, err = tail.TailFile(filename, tail.Config{Follow: true})
+		filename = fmt.Sprintf("%v/%v", cnf.LogPath, logNameFormat(time.Now()))
+		t, err = tail.TailFile(filename, tail.Config{Follow: true, ReOpen: true})
 		if err != nil {
 			log.Fatalln(err)
 		}
 		for line := range t.Lines {
+			checkFilename = fmt.Sprintf("%v/%v", cnf.LogPath, logNameFormat(time.Now()))
+			if checkFilename != filename {
+				break
+			}
 			re := regexp.MustCompile(regEXP)
 			match := re.FindStringSubmatch(line.Text)
 			if len(match) > 2 {
