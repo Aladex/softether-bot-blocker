@@ -1,6 +1,8 @@
 # softether-bot-blocker
 Parse logs from softether and block addresses
 
+Be careful. This software is experimental.
+
 # How to install
 
 Clone code to your server
