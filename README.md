@@ -20,7 +20,7 @@ Create folder for binary
 Copy binary and config to install folder
 
 ```
-cp release/blockSpam /opt/blockspam/.
+cp release/softher-bot-blocker /opt/blockspam/.
 cp release/config.yml /opt/blockspam/.
 ```
 
