@@ -7,7 +7,7 @@ ConditionPathExists=!/opt/blockspam/do_not_run
 #Type=forking
 Type=simple
 EnvironmentFile=-/opt/blockspam
-ExecStart=/opt/blockspam/softether-block-blocker -c /opt/blockspam/config.yml
+ExecStart=/opt/blockspam/softether-spam-blocker -c /opt/blockspam/config.yml
 KillMode=process
 Restart=on-failure
 
