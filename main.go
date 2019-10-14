@@ -13,14 +13,12 @@ import (
 	"time"
 )
 
-var t *tail.Tail
 var ip string
 var count int
 var blockedIPS []iptools.BlockedIP
 var regEXP = `(?P<time>^\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d).+\((?P<ipaddr>[0-9]+(?:\.[0-9]+){3}).+channel is created`
 var timeFormat = "2006-01-02 15:04:05"
 var filename string
-var checkFilename string
 
 type BanConf struct {
 	LogPath  string `yaml:"logpath"`
@@ -55,6 +53,17 @@ func logNameFormat(t time.Time) string {
 	return t.Format("vpn_20060102.log")
 }
 
+func checkFileName(filename string, cnf BanConf, f chan<- string) {
+	for {
+		newFilename := fmt.Sprintf("%v/%v", cnf.LogPath, logNameFormat(time.Now()))
+		if newFilename != filename {
+			log.Println("A new logfile", newFilename)
+			f <- newFilename
+			return
+		}
+	}
+}
+
 func main() {
 	parser := argparse.NewParser("print", "Binare that runs after TLS release")
 	// Create string flag
@@ -82,30 +91,35 @@ func main() {
 		log.Fatal(err)
 	}
 	log.SetOutput(l)
+	filenameChan := make(chan string)
 
 	for {
 		filename = fmt.Sprintf("%v/%v", cnf.LogPath, logNameFormat(time.Now()))
-		t, err = tail.TailFile(filename, tail.Config{Follow: true, ReOpen: true})
+		t, err := tail.TailFile(filename, tail.Config{Follow: true, ReOpen: true, MustExist: true})
+		if err != nil {
+			log.Println("No log file", filename, ". Waiting for 10 seconds")
+			time.Sleep(time.Second * 10)
+
+			continue
+		}
+
+		go checkFileName(filename, cnf, filenameChan)
+		go func() {
+			for {
+				select {
+				case name := <-filenameChan:
+					log.Println("Received a new name for log:", name)
+					t.Stop()
+					return
+				}
+			}
+		}()
+
 		if err != nil {
 			log.Fatalln(err)
 		}
 		for line := range t.Lines {
-			checkFilename = fmt.Sprintf("%v/%v", cnf.LogPath, logNameFormat(time.Now()))
-			if checkFilename != filename {
-				err = t.Stop()
-				if err != nil {
-					log.Fatalln(err)
-				}
-				myfile, err := os.Create(checkFilename)
-				if err != nil {
-					log.Fatalln(err)
-				}
-				err = myfile.Close()
-				if err != nil {
-					log.Fatalln(err)
-				}
-				break
-			}
+
 			re := regexp.MustCompile(regEXP)
 			match := re.FindStringSubmatch(line.Text)
 			if len(match) > 2 {
@@ -135,7 +149,6 @@ func main() {
 					count = 0
 				}
 			}
-
 		}
 	}
 }
