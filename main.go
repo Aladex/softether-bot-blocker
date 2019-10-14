@@ -92,6 +92,18 @@ func main() {
 		for line := range t.Lines {
 			checkFilename = fmt.Sprintf("%v/%v", cnf.LogPath, logNameFormat(time.Now()))
 			if checkFilename != filename {
+				err = t.Stop()
+				if err != nil {
+					log.Fatalln(err)
+				}
+				myfile, err := os.Create(checkFilename)
+				if err != nil {
+					log.Fatalln(err)
+				}
+				err = myfile.Close()
+				if err != nil {
+					log.Fatalln(err)
+				}
 				break
 			}
 			re := regexp.MustCompile(regEXP)
