@@ -1,15 +1,13 @@
 package main
 
 import (
-	iptools "blockSpamers/utils"
 	"fmt"
 	"github.com/akamensky/argparse"
 	"github.com/hpcloud/tail"
-	"gopkg.in/yaml.v2"
-	"io/ioutil"
 	"log"
 	"os"
 	"regexp"
+	iptools "softether-bot-blocker/utils"
 	"time"
 )
 
@@ -19,50 +17,6 @@ var blockedIPS []iptools.BlockedIP
 var regEXP = `(?P<time>^\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d).+\((?P<ipaddr>[0-9]+(?:\.[0-9]+){3}).+channel is created`
 var timeFormat = "2006-01-02 15:04:05"
 var filename string
-
-type BanConf struct {
-	LogPath  string `yaml:"logpath"`
-	Interval int    `yaml:"secondinterval"`
-	MaxCount int    `yaml:"maxipcount"`
-}
-
-func Config(cp string) BanConf {
-	t := BanConf{}
-	f, err := ioutil.ReadFile(cp)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	err = yaml.Unmarshal(f, &t)
-	if err != nil {
-		log.Fatalln(err)
-	}
-	return t
-}
-
-func checkInBlockList(s string, ips []iptools.BlockedIP) bool {
-	for _, v := range ips {
-		if s == v.IpAddress {
-			return true
-		}
-	}
-	return false
-}
-
-func logNameFormat(t time.Time) string {
-	return t.Format("vpn_20060102.log")
-}
-
-func checkFileName(filename string, cnf BanConf, f chan<- string) {
-	for {
-		newFilename := fmt.Sprintf("%v/%v", cnf.LogPath, logNameFormat(time.Now()))
-		if newFilename != filename {
-			log.Println("A new logfile", newFilename)
-			f <- newFilename
-			return
-		}
-	}
-}
 
 func main() {
 	parser := argparse.NewParser("print", "Binare that runs after TLS release")
@@ -82,7 +36,7 @@ func main() {
 		return
 	}
 
-	cnf := Config(*configPath)
+	cnf := iptools.Config(*configPath)
 	maxCNT := cnf.MaxCount
 	bullShitBingo := make([]iptools.BlockedIP, maxCNT)
 
@@ -94,16 +48,15 @@ func main() {
 	filenameChan := make(chan string)
 
 	for {
-		filename = fmt.Sprintf("%v/%v", cnf.LogPath, logNameFormat(time.Now()))
+		filename = fmt.Sprintf("%v/%v", cnf.LogPath, iptools.LogNameFormat(time.Now()))
 		t, err := tail.TailFile(filename, tail.Config{Follow: true, ReOpen: true, MustExist: true})
 		if err != nil {
-			log.Println("No log file", filename, ". Waiting for 10 seconds")
-			time.Sleep(time.Second * 10)
-
+			log.Println("No log file", filename, ". Waiting for 1 minute")
+			time.Sleep(time.Minute * 10)
 			continue
 		}
 
-		go checkFileName(filename, cnf, filenameChan)
+		go iptools.CheckFileName(filename, cnf, filenameChan)
 		go func() {
 			for {
 				select {
@@ -130,7 +83,7 @@ func main() {
 					log.Fatalln(err)
 				}
 				if iptools.CountIP(maxCNT-1, ip, &bullShitBingo, cnf.Interval) {
-					if !checkInBlockList(ip, blockedIPS) {
+					if !iptools.CheckInBlockList(ip, blockedIPS) {
 						go iptools.BlockIP(ip)
 						blockedIPS = append(blockedIPS, iptools.BlockedIP{
 							IpAddress: ip,

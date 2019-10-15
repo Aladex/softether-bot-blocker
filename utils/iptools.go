@@ -1,6 +1,9 @@
 package iptools
 
 import (
+	"fmt"
+	"gopkg.in/yaml.v2"
+	"io/ioutil"
 	"log"
 	"os/exec"
 	"time"
@@ -14,6 +17,13 @@ type BlockedIP struct {
 	Banned    bool
 }
 
+type BanConf struct {
+	LogPath  string `yaml:"logpath"`
+	Interval int    `yaml:"secondinterval"`
+	MaxCount int    `yaml:"maxipcount"`
+}
+
+// Count for IP in array for duplicate
 func CountIP(maxCount int, myip string, ad *[]BlockedIP, interval int) bool {
 	myList := &ad
 	var allTime []time.Time
@@ -38,6 +48,7 @@ func CountIP(maxCount int, myip string, ad *[]BlockedIP, interval int) bool {
 	return false
 }
 
+// Block IP with firewall
 func BlockIP(ip string) {
 	cmd := exec.Command("iptables", "-I", "INPUT", "-s", ip, "-j", "DROP")
 	err = cmd.Run()
@@ -46,4 +57,46 @@ func BlockIP(ip string) {
 	} else {
 		log.Printf("Blocked IP: %v\n", ip)
 	}
+}
+
+// Check for a new log filename of SoftetherVPN
+func CheckFileName(filename string, cnf BanConf, f chan<- string) {
+	for {
+		newFilename := fmt.Sprintf("%v/%v", cnf.LogPath, LogNameFormat(time.Now()))
+		if newFilename != filename {
+			log.Println("A new logfile", newFilename)
+			f <- newFilename
+			return
+		}
+	}
+}
+
+// Read config from file
+func Config(cp string) BanConf {
+	t := BanConf{}
+	f, err := ioutil.ReadFile(cp)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	err = yaml.Unmarshal(f, &t)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	return t
+}
+
+// Format of name for SoftetherVPN
+func LogNameFormat(t time.Time) string {
+	return t.Format("vpn_20060102.log")
+}
+
+// Check IP for already blocked
+func CheckInBlockList(s string, ips []BlockedIP) bool {
+	for _, v := range ips {
+		if s == v.IpAddress {
+			return true
+		}
+	}
+	return false
 }
