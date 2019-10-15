@@ -51,7 +51,7 @@ func main() {
 		filename = fmt.Sprintf("%v/%v", cnf.LogPath, iptools.LogNameFormat(time.Now()))
 		t, err := tail.TailFile(filename, tail.Config{Follow: true, ReOpen: true, MustExist: true})
 		if err != nil {
-			log.Println("No log file", filename, ". Waiting for 1 minute")
+			log.Println("No log file", filename, ". Waiting for 10 minute")
 			time.Sleep(time.Minute * 10)
 			continue
 		}
